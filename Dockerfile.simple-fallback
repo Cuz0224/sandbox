@@ -1,5 +1,5 @@
 # 简化版 Dockerfile - 适用于npm认证问题的fallback方案
-FROM node:18-alpine
+FROM node:20-alpine
 
 # 安装必要的系统依赖
 RUN apk add --no-cache \
@@ -18,9 +18,13 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # 完全重置npm环境并使用国内镜像
-RUN rm -rf /root/.npm /root/.npmrc \
-    && npm install -g nrm \
-    && nrm use taobao \
+RUN rm -rf /root/.npm* /root/.npmrc /tmp/* \
+    && npm config delete registry || true \
+    && npm config delete _auth || true \
+    && npm config delete _authToken || true \
+    && npm config delete //registry.npmjs.org/:_authToken || true \
+    && npm config set registry https://registry.npmmirror.com/ \
+    && npm config set always-auth false \
     && npm cache clean --force
 
 # 复制package文件

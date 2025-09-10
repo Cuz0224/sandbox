@@ -1,5 +1,5 @@
 # 多阶段构建 Dockerfile - 生产环境优化版本
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # 安装必要的系统依赖
 RUN apk add --no-cache \
