@@ -28,7 +28,7 @@ RUN rm -rf /root/.npm* /root/.npmrc /tmp/* \
     && npm cache clean --force
 
 # 复制package文件
-COPY package.json package-lock.json* ./
+COPY package.json ./
 
 # 安装依赖
 RUN echo "=== 当前npm配置 ===" \
@@ -37,8 +37,15 @@ RUN echo "=== 当前npm配置 ===" \
     && npm install --no-audit --no-fund \
     && echo "=== 依赖安装完成 ==="
 
-# 复制源代码
+# 复制所有源代码（包括配置文件）
 COPY . .
+
+# 验证关键文件存在
+RUN echo "=== 验证文件结构 ===" \
+    && ls -la src/ \
+    && ls -la src/components/ui/ \
+    && ls -la tsconfig.json \
+    && echo "=== 文件结构验证完成 ==="
 
 # 生成 Prisma 客户端
 RUN npx prisma generate

@@ -36,6 +36,13 @@ const nextConfig: NextConfig = {
       };
     }
     
+    // 确保路径别名在Docker环境中正确工作
+    const path = require('path');
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, 'src'),
+    };
+    
     return config;
   },
 };
