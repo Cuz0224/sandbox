@@ -23,23 +23,6 @@ echo "=== npm 配置 ==="
 npm config list
 echo ""
 
-# 检查认证配置
-echo "=== 认证配置检查 ==="
-echo "Registry: $(npm config get registry)"
-echo "Always Auth: $(npm config get always-auth)"
-echo "Auth Token: $(npm config get _auth)"
-echo "Username: $(npm config get username)"
-echo "Email: $(npm config get email)"
-echo ""
-
-# 清理认证配置
-echo "=== 清理认证配置 ==="
-npm config delete _auth || true
-npm config delete username || true
-npm config delete email || true
-echo "认证配置已清理"
-echo ""
-
 # 清理缓存
 echo "=== 清理缓存 ==="
 npm cache clean --force

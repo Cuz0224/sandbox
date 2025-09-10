@@ -32,10 +32,7 @@ COPY package.json package-lock.json* ./
 # 分步安装依赖，便于调试
 RUN npm cache clean --force
 
-RUN npm config delete registry
 RUN npm config set registry https://registry.npmjs.org/
-RUN npm config delete _auth
-RUN rm -rf /root/.npm/_cacache
 
 RUN npm config set fetch-retry-mintimeout 20000
 RUN npm config set fetch-retry-maxtimeout 120000

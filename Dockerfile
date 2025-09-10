@@ -33,7 +33,11 @@ COPY package.json package-lock.json* ./
 
 # 清理 npm 缓存并安装生产依赖
 RUN npm cache clean --force \
+    && rm -rf /root/.npm/_cacache /root/.npm/_logs \
     && npm config set registry https://registry.npmjs.org/ \
+    && npm config set always-auth false \
+    && npm config delete _auth || true \
+    && npm config delete _authToken || true \
     && npm ci --only=production --frozen-lockfile --no-audit --no-fund \
     && npm cache clean --force \
     && rm -rf /tmp/* /root/.npm
@@ -46,13 +50,14 @@ COPY package.json package-lock.json* ./
 
 # 安装所有依赖（包括开发依赖）
 RUN npm cache clean --force \
-    && npm config delete registry \
+    && rm -rf /root/.npm/_cacache /root/.npm/_logs \
     && npm config set registry https://registry.npmjs.org/ \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
     && npm config set fetch-retries 5 \
-    && npm config delete _auth \
-    && rm -rf /root/.npm/_cacache \
+    && npm config set always-auth false \
+    && npm config delete _auth || true \
+    && npm config delete _authToken || true \
     && npm install --frozen-lockfile --no-audit --no-fund \
     && npm cache clean --force \
     && rm -rf /tmp/* /root/.npm
