@@ -46,10 +46,14 @@ COPY package.json package-lock.json* ./
 
 # 安装所有依赖（包括开发依赖）
 RUN npm cache clean --force \
+    && npm config delete registry \
     && npm config set registry https://registry.npmjs.org/ \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
     && npm config set fetch-retries 5 \
+    && npm config set always-auth false \
+    && npm config set _auth "" \
+    && rm -rf /root/.npm/_cacache \
     && npm install --frozen-lockfile --no-audit --no-fund \
     && npm cache clean --force \
     && rm -rf /tmp/* /root/.npm
