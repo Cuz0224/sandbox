@@ -1,4 +1,4 @@
-# 多阶段构建 Dockerfile - 生产环境优化版本
+# Jenkins 构建优化 Dockerfile
 FROM node:18-alpine AS base
 
 # 安装必要的系统依赖
@@ -24,19 +24,7 @@ ENV NPM_CONFIG_LOGLEVEL=warn
 ENV NPM_CONFIG_PROGRESS=false
 ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
-
-# ===== 依赖安装阶段 =====
-FROM base AS deps
-
-# 复制包管理文件
-COPY package.json package-lock.json* ./
-
-# 清理 npm 缓存并安装生产依赖
-RUN npm cache clean --force \
-    && npm config set registry https://registry.npmjs.org/ \
-    && npm ci --only=production --frozen-lockfile --no-audit --no-fund \
-    && npm cache clean --force \
-    && rm -rf /tmp/* /root/.npm
+ENV NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
 
 # ===== 构建阶段 =====
 FROM base AS builder
@@ -44,9 +32,8 @@ FROM base AS builder
 # 复制包管理文件
 COPY package.json package-lock.json* ./
 
-# 安装所有依赖（包括开发依赖）
+# 安装依赖
 RUN npm cache clean --force \
-    && npm config set registry https://registry.npmjs.org/ \
     && npm ci --frozen-lockfile --no-audit --no-fund \
     && npm cache clean --force \
     && rm -rf /tmp/* /root/.npm
@@ -57,7 +44,7 @@ COPY . .
 # 生成 Prisma 客户端
 RUN npx prisma generate
 
-# 构建 Next.js 应用
+# 构建应用
 RUN npm run build
 
 # ===== 生产运行阶段 =====
