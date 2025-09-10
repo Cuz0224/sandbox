@@ -31,16 +31,17 @@ FROM base AS deps
 # 复制包管理文件
 COPY package.json package-lock.json* ./
 
-# 清理 npm 缓存并安装生产依赖
-RUN npm cache clean --force \
-    && rm -rf /root/.npm/_cacache /root/.npm/_logs \
-    && npm config set registry https://registry.npmjs.org/ \
-    && npm config set always-auth false \
-    && npm config delete _auth || true \
-    && npm config delete _authToken || true \
-    && npm ci --only=production --frozen-lockfile --no-audit --no-fund \
+# 清理并配置npm，安装生产依赖
+RUN echo "=== deps阶段: 开始npm配置 ===" \
+    && rm -rf /root/.npm /root/.npmrc \
+    && npm install -g nrm \
+    && nrm use taobao \
+    && echo "当前npm配置:" && npm config list \
     && npm cache clean --force \
-    && rm -rf /tmp/* /root/.npm
+    && echo "=== deps阶段: 开始安装生产依赖 ===" \
+    && npm ci --only=production --frozen-lockfile --no-audit --no-fund \
+    && echo "=== deps阶段: 依赖安装完成 ===" \
+    && npm cache clean --force
 
 # ===== 构建阶段 =====
 FROM base AS builder
@@ -49,18 +50,19 @@ FROM base AS builder
 COPY package.json package-lock.json* ./
 
 # 安装所有依赖（包括开发依赖）
-RUN npm cache clean --force \
-    && rm -rf /root/.npm/_cacache /root/.npm/_logs \
-    && npm config set registry https://registry.npmjs.org/ \
+RUN echo "=== 开始npm配置 ===" \
+    && rm -rf /root/.npm /root/.npmrc \
+    && npm install -g nrm \
+    && nrm use taobao \
+    && echo "当前npm配置:" && npm config list \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
     && npm config set fetch-retries 5 \
-    && npm config set always-auth false \
-    && npm config delete _auth || true \
-    && npm config delete _authToken || true \
-    && npm install --frozen-lockfile --no-audit --no-fund \
     && npm cache clean --force \
-    && rm -rf /tmp/* /root/.npm
+    && echo "=== 开始安装依赖 ===" \
+    && npm install --frozen-lockfile --no-audit --no-fund \
+    && echo "=== 依赖安装完成 ===" \
+    && npm cache clean --force
 
 # 复制源代码
 COPY . .
