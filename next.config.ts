@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   
   // 服务器外部包配置
-  serverExternalPackages: ['@prisma/client'],
+  serverExternalPackages: ['@prisma/client', 'dockerode'],
   
   // 图片配置
   images: {
@@ -33,7 +33,15 @@ const nextConfig: NextConfig = {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
+        net: false,
+        tls: false,
       };
+      
+      // 排除服务器端依赖
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push('dockerode');
+      }
     }
     
     // 确保路径别名在Docker环境中正确工作
