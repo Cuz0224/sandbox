@@ -51,8 +51,7 @@ RUN npm cache clean --force \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
     && npm config set fetch-retries 5 \
-    && npm config set always-auth false \
-    && npm config set _auth "" \
+    && npm config delete _auth \
     && rm -rf /root/.npm/_cacache \
     && npm install --frozen-lockfile --no-audit --no-fund \
     && npm cache clean --force \

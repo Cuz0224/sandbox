@@ -34,8 +34,7 @@ RUN npm cache clean --force
 
 RUN npm config delete registry
 RUN npm config set registry https://registry.npmjs.org/
-RUN npm config set always-auth false
-RUN npm config set _auth ""
+RUN npm config delete _auth
 RUN rm -rf /root/.npm/_cacache
 
 RUN npm config set fetch-retry-mintimeout 20000

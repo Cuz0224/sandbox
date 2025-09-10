@@ -35,11 +35,8 @@ echo ""
 # 清理认证配置
 echo "=== 清理认证配置 ==="
 npm config delete _auth || true
-npm config delete always-auth || true
 npm config delete username || true
 npm config delete email || true
-npm config set always-auth false
-npm config set _auth ""
 echo "认证配置已清理"
 echo ""
 
