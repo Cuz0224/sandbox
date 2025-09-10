@@ -67,6 +67,9 @@ Dockerfile*
 docker-compose*
 .dockerignore
 
+# 排除沙盒子项目目录
+sandbox/
+
 # 开发工具
 .eslintrc*
 .prettierrc*
