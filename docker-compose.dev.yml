@@ -27,7 +27,6 @@ services:
       - ./logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
-    command: npm run dev
     networks:
       - v0-sandbox-network
     depends_on:
@@ -44,6 +43,11 @@ services:
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     networks:
       - v0-sandbox-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   redis_data_dev:
@@ -52,3 +56,6 @@ volumes:
 networks:
   v0-sandbox-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
