@@ -1,5 +1,5 @@
-# Jenkins 构建优化 Dockerfile
-FROM node:18-alpine AS base
+# 简化版 Dockerfile - 专门解决 npm 安装问题
+FROM node:18-alpine
 
 # 安装必要的系统依赖
 RUN apk add --no-cache \
@@ -26,21 +26,25 @@ ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
 ENV NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
 
-# ===== 构建阶段 =====
-FROM base AS builder
-
 # 复制包管理文件
 COPY package.json package-lock.json* ./
 
-# 安装依赖
-RUN npm cache clean --force \
-    && npm config set registry https://registry.npmjs.org/ \
-    && npm config set fetch-retry-mintimeout 20000 \
-    && npm config set fetch-retry-maxtimeout 120000 \
-    && npm config set fetch-retries 5 \
-    && npm install --frozen-lockfile --no-audit --no-fund \
-    && npm cache clean --force \
-    && rm -rf /tmp/* /root/.npm
+# 分步安装依赖，便于调试
+RUN npm cache clean --force
+
+RUN npm config set registry https://registry.npmjs.org/
+
+RUN npm config set fetch-retry-mintimeout 20000
+RUN npm config set fetch-retry-maxtimeout 120000
+RUN npm config set fetch-retries 5
+
+# 尝试不同的安装策略
+RUN npm install --no-audit --no-fund || \
+    (npm cache clean --force && npm install --no-audit --no-fund)
+
+# 清理缓存
+RUN npm cache clean --force
+RUN rm -rf /tmp/* /root/.npm
 
 # 复制源代码
 COPY . .
@@ -51,29 +55,19 @@ RUN npx prisma generate
 # 构建应用
 RUN npm run build
 
-# ===== 生产运行阶段 =====
-FROM base AS runner
-
 # 创建非 root 用户
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
-# 设置工作目录权限
-WORKDIR /app
-
 # 复制构建产物
-COPY --from=builder /app/public ./public
-
-# 复制 Next.js 独立构建产物
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --chown=nextjs:nodejs /app/public ./public
+COPY --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # 复制 Prisma 相关文件
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-
-# 复制必要的运行时文件
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 # 创建必要的目录
 RUN mkdir -p /app/data /app/logs /app/sandbox-projects \
