@@ -134,6 +134,72 @@ export default function AIPipelinePage() {
 
   // API 接口调用函数
   
+  // 通用代理请求函数
+  const proxyRequest = async (url: string, method: string, options: {
+    headers?: Record<string, string>;
+    body?: any;
+    params?: URLSearchParams;
+  } = {}) => {
+    const proxyUrl = 'https://autopilottest.koudingvip.com/api/zaki/proxy/';
+    
+    // 构建代理请求体
+    const proxyBody: any = {
+      url: url,
+      method: method.toUpperCase(),
+      headers: options.headers || {},
+      bodys: {}
+    };
+
+    // 处理 GET 请求的查询参数
+    if (method.toUpperCase() === 'GET' && options.params) {
+      const queryObj: Record<string, string> = {};
+      options.params.forEach((value, key) => {
+        queryObj[key] = value;
+      });
+      proxyBody.headers = { ...proxyBody.headers, ...queryObj };
+    }
+
+    // 处理 FormData
+    if (options.body instanceof FormData) {
+      const formObj: Record<string, any> = {};
+      for (const [key, value] of options.body.entries()) {
+        if (value instanceof File) {
+          // 对于文件，我们需要读取为base64
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              resolve(result.split(',')[1]); // 移除 data:type;base64, 前缀
+            };
+            reader.readAsDataURL(value);
+          });
+          formObj[key] = {
+            type: 'file',
+            name: value.name,
+            content: base64,
+            mimeType: value.type
+          };
+        } else {
+          formObj[key] = value;
+        }
+      }
+      proxyBody.bodys = formObj;
+    } else if (options.body && typeof options.body === 'object') {
+      proxyBody.bodys = options.body;
+    }
+
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'autopilot123456'
+      },
+      body: JSON.stringify(proxyBody)
+    });
+
+    return response;
+  };
+  
   // 按场景创建模板
   const createTemplateByScene = async (scene: string, scene_en?: string) => {
     setIsCreatingTemplate(true);
@@ -144,8 +210,7 @@ export default function AIPipelinePage() {
         formData.append('scene_en', scene_en);
       }
       
-      const response = await fetch('http://127.0.0.1:7902/frontend_component/create_by_scene', {
-        method: 'POST',
+      const response = await proxyRequest('/frontend_component/create_by_scene', 'POST', {
         body: formData
       });
 
@@ -188,8 +253,8 @@ export default function AIPipelinePage() {
         params.append('scene_en', scene_en);
       }
       
-      const response = await fetch(`http://127.0.0.1:7902/frontend_component/download?${params.toString()}`, {
-        method: 'GET'
+      const response = await proxyRequest('/frontend_component/download', 'GET', {
+        params: params
       });
 
       if (response.ok) {
@@ -257,8 +322,7 @@ export default function AIPipelinePage() {
       formData.append('function_tag', templateForm.function_tag);
       formData.append('file', uploadFile);
 
-      const response = await fetch('http://127.0.0.1:7902/frontend_component/modify', {
-        method: 'POST',
+      const response = await proxyRequest('/frontend_component/modify', 'POST', {
         body: formData
       });
 
@@ -285,10 +349,9 @@ export default function AIPipelinePage() {
   const resetSandbox = async () => {
     setIsResetting(true);
     try {
-      const response = await fetch('http://127.0.0.1:7902/api/sandbox/reset', {
-        method: 'POST',
+      const response = await proxyRequest('/api/sandbox/reset', 'POST', {
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmReset: true })
+        body: { confirmReset: true }
       });
 
       const data = await response.json();
@@ -312,8 +375,7 @@ export default function AIPipelinePage() {
   const getSceneList = async () => {
     setIsLoadingScenes(true);
     try {
-      const response = await fetch('http://127.0.0.1:7902/frontend_component/get_scene_list', {
-        method: 'GET',
+      const response = await proxyRequest('/frontend_component/get_scene_list', 'GET', {
         headers: { 'Content-Type': 'application/json' }
       });
 
@@ -338,9 +400,12 @@ export default function AIPipelinePage() {
   const queryComponentsByScene = async (scene_en: string) => {
     setIsLoadingComponents(true);
     try {
-      const response = await fetch(`http://127.0.0.1:7902/frontend_component/query_by_scene?scene_en=${encodeURIComponent(scene_en)}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+      const params = new URLSearchParams();
+      params.append('scene_en', scene_en);
+      
+      const response = await proxyRequest('/frontend_component/query_by_scene', 'GET', {
+        headers: { 'Content-Type': 'application/json' },
+        params: params
       });
 
       const data = await response.json();
@@ -376,8 +441,8 @@ export default function AIPipelinePage() {
         params.append('scene_en', scene_en);
       }
       
-      const response = await fetch(`http://127.0.0.1:7902/frontend_component/download?${params.toString()}`, {
-        method: 'GET'
+      const response = await proxyRequest('/frontend_component/download', 'GET', {
+        params: params
       });
 
       if (response.ok) {
@@ -477,8 +542,7 @@ export default function AIPipelinePage() {
       formData.append('function_tag', historyComponentForm.function_tag);
       formData.append('file', historyUploadFile);
 
-      const response = await fetch('http://127.0.0.1:7902/frontend_component/update_by_name', {
-        method: 'POST',
+      const response = await proxyRequest('/frontend_component/update_by_name', 'POST', {
         body: formData
       });
 

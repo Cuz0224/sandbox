@@ -68,6 +68,9 @@ export default function ComponentUploader({ isVisible, onClose, onUploadComplete
       const result = await response.json();
 
       if (result.success) {
+        let pageUpdateSuccess = true;
+        let pageUpdateMessage = '';
+        
         // 自动更新页面
         try {
           const updateResponse = await fetch('/api/upload/components/update-page', {
@@ -82,14 +85,24 @@ export default function ComponentUploader({ isVisible, onClose, onUploadComplete
           
           const updateResult = await updateResponse.json();
           console.log('页面更新结果:', updateResult);
+          
+          if (!updateResult.success) {
+            pageUpdateSuccess = false;
+            pageUpdateMessage = updateResult.error || '页面更新失败';
+          }
         } catch (updateError) {
           console.error('页面更新失败:', updateError);
+          pageUpdateSuccess = false;
+          pageUpdateMessage = `页面更新失败: ${(updateError as Error).message}`;
         }
 
         setUploadResult({
           success: true,
-          message: result.message,
-          components: result.componentList || []
+          message: pageUpdateSuccess 
+            ? `${result.message}，页面已更新` 
+            : `${result.message}，但页面更新失败: ${pageUpdateMessage}`,
+          components: result.componentList || [],
+          error: pageUpdateSuccess ? undefined : pageUpdateMessage
         });
         
         // 调用回调函数
@@ -146,16 +159,16 @@ export default function ComponentUploader({ isVisible, onClose, onUploadComplete
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white border shadow-xl">
+        <CardHeader className="bg-white">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center space-x-2">
-                <Upload className="h-5 w-5" />
+              <CardTitle className="flex items-center space-x-2 text-gray-900">
+                <Upload className="h-5 w-5 text-gray-700" />
                 <span>上传组件包</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-gray-600 mt-1">
                 上传包含React组件的zip文件，系统将自动解析并保存到项目中
               </CardDescription>
             </div>
@@ -170,17 +183,17 @@ export default function ComponentUploader({ isVisible, onClose, onUploadComplete
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 bg-white">
           {/* 上传区域 */}
           <div
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors bg-gray-50"
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onClick={triggerFileSelect}
           >
-            <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-lg font-semibold mb-2">选择或拖拽zip文件</h3>
-            <p className="text-gray-500 mb-4">
+            <Upload className="h-12 w-12 mx-auto mb-4 text-gray-500" />
+            <h3 className="text-lg font-semibold mb-2 text-gray-900">选择或拖拽zip文件</h3>
+            <p className="text-gray-600 mb-4">
               支持包含.tsx组件文件的zip压缩包
             </p>
             <Button variant="outline" disabled={isUploading}>
@@ -199,7 +212,7 @@ export default function ComponentUploader({ isVisible, onClose, onUploadComplete
           {/* 上传进度 */}
           {isUploading && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-sm text-gray-700">
                 <span>上传进度</span>
                 <span>{uploadProgress}%</span>
               </div>
