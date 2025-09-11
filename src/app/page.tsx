@@ -102,6 +102,7 @@ export default function Home() {
 
             <a
               href="/ai-pipeline"
+              target="_blank"
               className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm transition-colors flex items-center space-x-1"
             >
               <span>🤖</span>
