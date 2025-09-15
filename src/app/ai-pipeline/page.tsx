@@ -8,13 +8,16 @@ import {
   Upload, FileText, Plus, Edit3, Package, Layers, History, Eye, 
   ChevronRight
 } from 'lucide-react';
+import StyleManagement from './components/StyleManagement';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { proxyRequest } from '@/utils/request';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 
 export default function AIPipelinePage() {
   // 重置功能状态
@@ -23,7 +26,7 @@ export default function AIPipelinePage() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   
   // 页面状态
-  const [activeTab, setActiveTab] = useState('history');
+  const [activeTab, setActiveTab] = useState('templates');
   const [stats, setStats] = useState({
     totalPipelines: 0,
     activePipelines: 0,
@@ -54,6 +57,11 @@ export default function AIPipelinePage() {
   const [isLoadingScenes, setIsLoadingScenes] = useState(false);
   const [isLoadingComponents, setIsLoadingComponents] = useState(false);
   const [isDownloadingHistory, setIsDownloadingHistory] = useState(false);
+  
+  // 风格管理状态
+  const [styles, setStyles] = useState<any[]>([]);
+  const [isLoadingStyles, setIsLoadingStyles] = useState(false);
+  const [styleMessage, setStyleMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // 导航路由
   const router = useRouter();
@@ -127,7 +135,7 @@ export default function AIPipelinePage() {
   // API 接口调用函数
   
   // 按场景创建模板
-  const createTemplateByScene = async (scene: string, scene_en?: string) => {
+  const createTemplateByScene = async (scene: string, scene_en?: string, stylize?: string) => {
     setIsCreatingTemplate(true);
     try {
       const formData = new FormData();
@@ -135,13 +143,18 @@ export default function AIPipelinePage() {
       if (scene_en && scene_en.trim()) {
         formData.append('scene_en', scene_en);
       }
+      if (stylize && stylize.trim()) {
+        formData.append('stylize', stylize);
+      }
       
-      const response = await fetch('http://127.0.0.1:7902/frontend_component/create_by_scene', {
+      const response = await proxyRequest('/frontend_component/create_by_scene', {
         method: 'POST',
-        body: formData
+        bodys: formData,
+        isFormData: true
       });
 
-      const data = await response.json();
+      const dataRaw = await response.json();
+      const { data } = dataRaw
       
       if (data.status == 0) {
         // 解析返回的模板数据
@@ -180,7 +193,7 @@ export default function AIPipelinePage() {
         params.append('scene_en', scene_en);
       }
       
-      const response = await fetch(`http://127.0.0.1:7902/frontend_component/download?${params.toString()}`, {
+      const response = await proxyRequest(`/frontend_component/download?${params.toString()}`, {
         method: 'GET'
       });
 
@@ -248,13 +261,21 @@ export default function AIPipelinePage() {
       formData.append('stype_tag', templateForm.stype_tag);
       formData.append('function_tag', templateForm.function_tag);
       formData.append('file', uploadFile);
+      
+      // 添加 stylize 参数 - 自动获取所有风格的 name_en
+      if (styles && styles.length > 0) {
+        const stylizeValue = styles.map(style => style.name_en).join(',');
+        formData.append('stylize', stylizeValue);
+      }
 
-      const response = await fetch('http://127.0.0.1:7902/frontend_component/modify', {
+      const response = await proxyRequest('/frontend_component/modify', {
         method: 'POST',
-        body: formData
+        bodys: formData,
+        isFormData: true
       });
 
-      const data = await response.json();
+      const dataRaw = await response.json();
+      const { data } = dataRaw
       
       if (response.ok) {
         showSuccessNotification('模板修改成功！', '组件模板已更新');
@@ -277,13 +298,14 @@ export default function AIPipelinePage() {
   const resetSandbox = async () => {
     setIsResetting(true);
     try {
-      const response = await fetch('http://127.0.0.1:7902/api/sandbox/reset', {
+      const response = await proxyRequest('/api/sandbox/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmReset: true })
+        bodys: { confirmReset: true }
       });
 
-      const data = await response.json();
+      const dataRaw = await response.json();
+      const { data } = dataRaw
 
       if (data.success) {
         setShowSuccessMessage(true);
@@ -304,18 +326,14 @@ export default function AIPipelinePage() {
   const getSceneList = async () => {
     setIsLoadingScenes(true);
     try {
-      const response = await fetch('https://autopilottest.koudingvip.com/api/zaki/proxy/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: '/frontend_component/get_scene_list',
-          method: 'GET'
-        })
+      const response = await proxyRequest('/frontend_component/get_scene_list', {
+        method: 'GET'
       });
 
-      const data = await response.json();
-      
+      const dataRaw = await response.json();
+      const { data } = dataRaw
       if (data.status == 0) {
+        console.log('dada', data)
         setHistoryScenes(data.data || []);
         return data.data;
       } else {
@@ -334,12 +352,15 @@ export default function AIPipelinePage() {
   const queryComponentsByScene = async (scene_en: string) => {
     setIsLoadingComponents(true);
     try {
-      const response = await fetch(`http://127.0.0.1:7902/frontend_component/query_by_scene?scene_en=${encodeURIComponent(scene_en)}`, {
+      const response = await proxyRequest(`/frontend_component/query_by_scene`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          scene_en: encodeURIComponent(scene_en)
+        }
       });
 
-      const data = await response.json();
+      const dataRaw = await response.json();
+      const { data } = dataRaw
       
       if (data.status == 0) {
         // 解析返回的组件数据，直接使用数组结构
@@ -372,7 +393,7 @@ export default function AIPipelinePage() {
         params.append('scene_en', scene_en);
       }
       
-      const response = await fetch(`http://127.0.0.1:7902/frontend_component/download?${params.toString()}`, {
+      const response = await proxyRequest(`/frontend_component/download?${params.toString()}`, {
         method: 'GET'
       });
 
@@ -408,6 +429,7 @@ export default function AIPipelinePage() {
 
   // 处理历史场景选择
   const handleSelectHistoryScene = async (scene: any) => {
+    console.log('sese', scene)
     setSelectedHistoryScene(scene);
     setHistoryComponents([]); // 清空之前的组件列表
     
@@ -419,15 +441,127 @@ export default function AIPipelinePage() {
 
   // 处理组件详情查看 - 跳转到详情页面
   const handleViewComponentDetails = (component: any) => {
-    const componentData = encodeURIComponent(JSON.stringify(component));
-    router.push(`/component-detail/${component.id || 'unknown'}?data=${componentData}`);
+    const sceneEn = selectedHistoryScene?.scene_en;
+    const scene = selectedHistoryScene?.scene;
+    console.log('enen', selectedHistoryScene)
+    const componentName = component.component_name;
+    router.push(`/component-detail/${component.id || 'unknown'}?scene_en=${encodeURIComponent(sceneEn)}&component_name=${encodeURIComponent(componentName)}&scene=${encodeURIComponent(scene)}`);
   };
 
+
+  // 加载风格列表
+  const loadStyles = async () => {
+    setIsLoadingStyles(true);
+    try {
+      const response = await proxyRequest('/frontend_component/get_stylize_list', {
+        method: 'GET'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.code === 200 && data.data?.data) {
+        setStyles(data.data.data);
+      } else {
+        throw new Error(data.msg || '获取风格列表失败');
+      }
+    } catch (error) {
+      // 记录错误日志
+      if (process.env.NODE_ENV === 'development') {
+        console.error('加载风格列表失败:', error);
+      }
+      setStyleMessage({ type: 'error', text: `加载失败: ${error instanceof Error ? error.message : '未知错误'}` });
+    } finally {
+      setIsLoadingStyles(false);
+    }
+  };
+
+  // 保存风格（创建或更新）
+  const saveStyle = async (styleData: any) => {
+    console.log('styleData', styleData)
+    try {
+      const response = await proxyRequest('/frontend_component/upsert_stylize', {
+        method: 'POST',
+        bodys: {
+          name: styleData.name,
+          name_en: styleData.name_en,
+          description: styleData.description,
+          prompt_text: styleData.prompt_text
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.code === 200) {
+        setStyleMessage({ type: 'success', text: '保存成功' });
+        await loadStyles(); // 重新加载列表
+        return true;
+      } else {
+        throw new Error(data.msg || '保存失败');
+      }
+    } catch (error) {
+      // 记录错误日志
+      if (process.env.NODE_ENV === 'development') {
+        console.error('保存风格失败:', error);
+      }
+      setStyleMessage({ type: 'error', text: `保存失败: ${error instanceof Error ? error.message : '未知错误'}` });
+      return false;
+    }
+  };
+
+  // 删除风格
+  const deleteStyle = async (style: any) => {
+    try {
+      // 这里需要根据实际API实现删除逻辑
+      // 假设有删除接口
+      const response = await proxyRequest('/frontend_component/delete_stylize', {
+        method: 'POST',
+        bodys: {
+          name_en: style.name_en
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.code === 200) {
+        setStyleMessage({ type: 'success', text: '删除成功' });
+        await loadStyles(); // 重新加载列表
+      } else {
+        throw new Error(data.msg || '删除失败');
+      }
+    } catch (error) {
+      // 记录错误日志
+      if (process.env.NODE_ENV === 'development') {
+        console.error('删除风格失败:', error);
+      }
+      setStyleMessage({ type: 'error', text: `删除失败: ${error instanceof Error ? error.message : '未知错误'}` });
+    }
+  };
+
+  // 清空风格消息
+  useEffect(() => {
+    if (styleMessage) {
+      const timer = setTimeout(() => setStyleMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [styleMessage]);
 
   // 页面加载时获取统计信息和历史场景
   useEffect(() => {
     updateStats();
     getSceneList();
+    loadStyles(); // 加载风格列表
   }, []);
 
   const getStageIcon = (stage: string) => {
@@ -591,7 +725,7 @@ export default function AIPipelinePage() {
                     <div className="p-2 bg-green-100 rounded-lg">
                       <Package className="w-4 h-4" />
                     </div>
-                    <span className="font-medium">📦 新增场景模板</span>
+                    <span className="font-medium">📦 场景/模板管理</span>
                   </div>
                 </TabsTrigger>
                 <TabsTrigger 
@@ -602,7 +736,7 @@ export default function AIPipelinePage() {
                     <div className="p-2 bg-blue-100 rounded-lg">
                       <History className="w-4 h-4" />
                     </div>
-                    <span className="font-medium">📚 历史场景</span>
+                    <span className="font-medium">🎨 风格管理</span>
                   </div>
                 </TabsTrigger>
               </TabsList>
@@ -610,7 +744,7 @@ export default function AIPipelinePage() {
               
               <TabsContent value="templates" className="space-y-6">
                 <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">新增组件模板</h3>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">新增场景</h3>
                   <p className="text-gray-600 max-w-2xl mx-auto">
                     按场景创建、下载和修改前端组件模板。支持批量生成组件、下载压缩包和上传自定义模板文件
                   </p>
@@ -655,9 +789,16 @@ export default function AIPipelinePage() {
                       </div>
                     </div>
                     
+                    
                     <div className="flex gap-3">
                       <Button
-                        onClick={() => createTemplateByScene(selectedScene, selectedSceneEn)}
+                        onClick={() => {
+                          // 自动获取所有风格的 name_en 用逗号分隔
+                          const stylizeValue = styles.length > 0 
+                            ? styles.map(style => style.name_en).join(',')
+                            : '';
+                          createTemplateByScene(selectedScene, selectedSceneEn, stylizeValue);
+                        }}
                         disabled={!selectedScene.trim() || isCreatingTemplate}
                         className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                       >
@@ -670,25 +811,6 @@ export default function AIPipelinePage() {
                           <>
                             <Plus className="w-4 h-4 mr-2" />
                             生成模板
-                          </>
-                        )}
-                      </Button>
-                      
-                      <Button
-                        onClick={() => downloadTemplate(selectedScene, selectedSceneEn)}
-                        disabled={!selectedScene.trim() || isDownloading}
-                        variant="outline"
-                        className="border-green-200 text-green-700 hover:bg-green-50"
-                      >
-                        {isDownloading ? (
-                          <>
-                            <Download className="w-4 h-4 mr-2 animate-bounce" />
-                            下载中...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-4 h-4 mr-2" />
-                            下载
                           </>
                         )}
                       </Button>
@@ -755,124 +877,8 @@ export default function AIPipelinePage() {
                   </Card>
                 )}
 
-                {/* 条件显示的模板修改上传卡片 */}
-                {selectedTemplate && (
-                  <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200 animate-in slide-in-from-bottom-2 duration-300">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Edit3 className="w-5 h-5 text-blue-600" />
-                          <CardTitle>模板修改上传</CardTitle>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={clearSelectedTemplate}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          ✕
-                        </Button>
-                      </div>
-                      <CardDescription>
-                        正在编辑: <span className="font-semibold text-blue-600">{selectedTemplate.component_name}</span> - 上传自定义组件文件，修改模板的样式和功能
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            场景 <span className="text-gray-400">(自动填充)</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={templateForm.scene}
-                            onChange={(e) => setTemplateForm(prev => ({...prev, scene: e.target.value}))}
-                            placeholder="场景名称"
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-gray-50"
-                            readOnly
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            组件名称 <span className="text-gray-400">(自动填充)</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={templateForm.component_name}
-                            onChange={(e) => setTemplateForm(prev => ({...prev, component_name: e.target.value}))}
-                            placeholder="组件名称"
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-gray-50"
-                            readOnly
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            风格标签 <span className="text-green-600">(可修改)</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={templateForm.stype_tag}
-                            onChange={(e) => setTemplateForm(prev => ({...prev, stype_tag: e.target.value}))}
-                            placeholder="现代简约, 商务风格..."
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            功能标签 <span className="text-green-600">(可修改)</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={templateForm.function_tag}
-                            onChange={(e) => setTemplateForm(prev => ({...prev, function_tag: e.target.value}))}
-                            placeholder="交互性, 数据展示..."
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          模板文件 <span className="text-green-600">(支持 .zip, .tsx, .ts, .jsx, .js 文件)</span>
-                        </label>
-                        <input
-                          type="file"
-                          accept=".zip,.tsx,.ts,.jsx,.js"
-                          onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        />
-                        {uploadFile && (
-                          <div className="mt-2 text-xs text-gray-600">
-                            已选择文件: <span className="font-medium">{uploadFile.name}</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={modifyTemplate}
-                          disabled={!templateForm.scene || !templateForm.component_name || !uploadFile}
-                          className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-                        >
-                          <Upload className="w-4 h-4 mr-2" />
-                          上传修改
-                        </Button>
-                        <Button
-                          onClick={clearSelectedTemplate}
-                          variant="outline"
-                          className="border-gray-300 text-gray-600 hover:bg-gray-50"
-                        >
-                          取消编辑
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="history" className="space-y-6">
                 <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">历史场景管理</h3>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">已生成的场景</h3>
                   <p className="text-gray-600 max-w-2xl mx-auto">
                     查看已生成的场景列表，选择场景查看其组件详情，并支持下载历史场景的组件包。
                   </p>
@@ -883,7 +889,7 @@ export default function AIPipelinePage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <History className="w-5 h-5 text-blue-600" />
-                      历史场景列表
+                      已生成的场景列表
                     </CardTitle>
                     <CardDescription>
                       点击场景卡片查看该场景下的组件列表
@@ -898,7 +904,7 @@ export default function AIPipelinePage() {
                     ) : historyScenes.length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
                         <History className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                        <p>暂无历史场景数据</p>
+                        <p>暂无已生成的场景数据</p>
                         <Button 
                           onClick={getSceneList}
                           variant="outline" 
@@ -911,10 +917,10 @@ export default function AIPipelinePage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {historyScenes.map((scene: any, index) => (
                           <div 
-                            key={scene.id || index} 
+                            key={scene.scene_en || index} 
                             onClick={() => handleSelectHistoryScene(scene)}
                             className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
-                              selectedHistoryScene?.id === scene.id || selectedHistoryScene === scene
+                              selectedHistoryScene?.scene_en === scene.scene_en || selectedHistoryScene === scene
                                 ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-105'
                                 : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
                             }`}
@@ -927,7 +933,7 @@ export default function AIPipelinePage() {
                                 <Badge variant="outline" className="text-xs">
                                   {scene.scene_en || 'EN'}
                                 </Badge>
-                                {(selectedHistoryScene?.id === scene.id || selectedHistoryScene === scene) && (
+                                {(selectedHistoryScene?.scene_en === scene.scene_en || selectedHistoryScene === scene) && (
                                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                                 )}
                               </div>
@@ -1090,77 +1096,17 @@ export default function AIPipelinePage() {
 
               </TabsContent>
               
-              <TabsContent value="monitoring" className="space-y-6">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">Pipeline 监控面板</h3>
-                  <p className="text-gray-600 max-w-2xl mx-auto">
-                    实时监控 Pipeline 执行状态、性能指标和构建历史。
-                    提供详细的日志和性能分析报告。
-                  </p>
-                </div>
-                
-                {/* 监控面板内容 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5" />
-                        构建性能
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">平均构建时间</span>
-                          <span className="font-semibold">2.5 分钟</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">成功率</span>
-                          <span className="font-semibold text-green-600">96%</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">今日构建</span>
-                          <span className="font-semibold">12 次</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Clock className="w-5 h-5" />
-                        最近执行
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                          <div className="flex-1">
-                            <div className="text-sm font-medium">React 组件库</div>
-                            <div className="text-xs text-gray-500">2 分钟前</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                          <div className="flex-1">
-                            <div className="text-sm font-medium">Dashboard 项目</div>
-                            <div className="text-xs text-gray-500">15 分钟前</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <div className="flex-1">
-                            <div className="text-sm font-medium">E-commerce 应用</div>
-                            <div className="text-xs text-gray-500">1 小时前</div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+              <TabsContent value="history" className="space-y-6">
+                <StyleManagement 
+                  styles={styles}
+                  loading={isLoadingStyles}
+                  message={styleMessage}
+                  onLoadStyles={loadStyles}
+                  onSaveStyle={saveStyle}
+                  onDeleteStyle={deleteStyle}
+                />
               </TabsContent>
+              
             </Tabs>
           </CardContent>
         </Card>

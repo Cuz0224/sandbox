@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     const componentName = formData.get('component_name') as string;
     const stypeTag = formData.get('stype_tag') as string;
     const functionTag = formData.get('function_tag') as string;
+    const stylize = formData.get('stylize') as string;
     const file = formData.get('file') as File;
 
     // 验证必需参数
@@ -59,6 +60,26 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     await writeFile(filePath, buffer);
+
+    // 处理 stylize 参数
+    if (stylize && stylize.trim()) {
+      const styleList = stylize.split(',').map(s => s.trim()).filter(s => s);
+      console.log('应用风格到模板修改:', styleList);
+      
+      // 这里可以将风格信息保存到元数据文件中，或者用于后续处理
+      const metadata = {
+        scene,
+        componentName,
+        stypeTag,
+        functionTag,
+        stylize: styleList,
+        uploadedAt: new Date().toISOString(),
+        fileName: file.name
+      };
+      
+      const metadataPath = join(uploadDir, `${componentName}_metadata.json`);
+      await writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+    }
 
     // 记录模板修改信息（在实际项目中，您可能想要保存到数据库）
     const templateInfo = {

@@ -115,11 +115,15 @@ export async function POST(request: NextRequest) {
         const fullPath = path.join(sandboxPath, filePath);
         const dir = path.dirname(fullPath);
 
+        console.log(`📁 创建目录: ${dir}`);
+        console.log(`📄 写入文件: ${fullPath}`);
+
         // 确保目录存在
         await fs.mkdir(dir, { recursive: true });
 
         // 写入文件
         await fs.writeFile(fullPath, content, 'utf-8');
+        console.log(`✅ 文件写入成功: ${fullPath}`);
     }
 
       return NextResponse.json({

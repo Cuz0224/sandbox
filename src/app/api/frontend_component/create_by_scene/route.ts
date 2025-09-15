@@ -21,7 +21,10 @@ const SCENE_TEMPLATES: Record<string, any[]> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { scene } = await request.json();
+    const formData = await request.formData();
+    const scene = formData.get('scene') as string;
+    const scene_en = formData.get('scene_en') as string;
+    const stylize = formData.get('stylize') as string;
 
     if (!scene) {
       return NextResponse.json(
@@ -51,6 +54,21 @@ export async function POST(request: NextRequest) {
         ["LayoutWrapper", "layout,container,grid", `${scene}布局容器，提供响应式布局支持`, "所有页面", scene, "响应式", "布局组件"],
         ["ActionPanel", "button,form,modal", `${scene}操作面板，集成常用操作功能`, "操作页面", scene, "交互式", "操作工具"]
       ];
+    }
+
+    // 处理 stylize 参数 - 如果有风格参数，在模板数据中添加风格信息
+    if (stylize && stylize.trim()) {
+      const styleList = stylize.split(',').map(s => s.trim()).filter(s => s);
+      console.log('应用风格:', styleList);
+      
+      // 在模板数据中添加风格信息（可以用于后续处理）
+      templateData = templateData.map(template => {
+        // 在模板描述中添加风格信息
+        const originalDesc = template[2];
+        const styleInfo = styleList.length > 0 ? ` [风格: ${styleList.join(', ')}]` : '';
+        template[2] = originalDesc + styleInfo;
+        return template;
+      });
     }
 
     const response = {
